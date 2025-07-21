@@ -52,3 +52,22 @@ if (BUILD_TESTING)
         add_subdirectory(perf)
     endif()
 endif()
+
+
+# 安装 libvbz.a 到 lib 目录
+install(TARGETS vbz
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
+# 安装 vbz 的头文件（你可以根据需要更具体地指定）
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+    DESTINATION include/vbz
+    FILES_MATCHING PATTERN "*.h"
+)
+
+# 安装生成的 export header
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vbz/vbz_export.h
+    DESTINATION include/vbz
+)

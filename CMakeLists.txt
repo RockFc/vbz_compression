@@ -277,3 +277,13 @@ if (ENABLE_PYTHON)
 endif()
 add_subdirectory(vbz)
 add_subdirectory(vbz_plugin)
+
+# 安装 streamvbyte 静态库
+install(FILES ${STREAMVBYTE_STATIC_LIB}
+    DESTINATION lib
+)
+
+# 安装 streamvbyte 的头文件
+install(DIRECTORY ${STREAMVBYTE_INSTALL_DIR}/include/
+    DESTINATION include/streamvbyte
+)
