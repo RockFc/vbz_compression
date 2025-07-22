@@ -27,7 +27,7 @@ bool vbz_compress_vector(const std::vector<T>& input_data,
 
     if (vbz_is_error(compressed_size))
     {
-        std::cerr << "Error during compression" << std::endl;
+        std::cerr << "Error during compression: " << vbz_error_string(compressed_size) << std::endl;
         return false;
     }
 
@@ -193,6 +193,128 @@ void test_file_vbz_compression(const std::string& input_file,
     std::cout << "========================================================" << std::endl;
 }
 
+void test_file_vbz_compression_sized(const std::string& input_file,
+                                     const std::string& output_file,
+                                     unsigned int       zstd_compression_level = 5,
+                                     bool               perform_delta_zig_zag  = true)
+{
+    using T = int16_t;
+
+    std::cout << "\nInput file: " << input_file << std::endl;
+    std::cout << "Output file: " << output_file << std::endl;
+    std::cout << "Compression level: " << zstd_compression_level << std::endl;
+    std::cout << "Perform delta zig zag: " << perform_delta_zig_zag << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
+
+    // Open and read input file
+    std::ifstream ifs(input_file, std::ios::binary);
+    if (!ifs.is_open())
+    {
+        std::cerr << "Error: Could not open input file" << std::endl;
+        return;
+    }
+
+    // Read data as bytes first
+    std::vector<char> input_bytes((std::istreambuf_iterator<char>(ifs)),
+                                  std::istreambuf_iterator<char>());
+    ifs.close();
+
+    if (input_bytes.size() % sizeof(T) != 0)
+    {
+        std::cerr << "Error: Input data size is not a multiple of element size" << std::endl;
+        return;
+    }
+
+    vbz_size_t input_size = vbz_size_t(input_bytes.size());
+
+    // Setup compression options
+    CompressionOptions options;
+    options.perform_delta_zig_zag  = perform_delta_zig_zag;
+    options.integer_size           = sizeof(T);
+    options.zstd_compression_level = zstd_compression_level;
+    options.vbz_version            = VBZ_DEFAULT_VERSION;
+
+    // Allocate buffer for compressed data, using max size estimate
+    std::vector<char> compressed_buf(vbz_max_compressed_size(input_size, &options));
+
+    // Compress with sized API (stores original size inside)
+    auto       start           = std::chrono::high_resolution_clock::now();
+    vbz_size_t compressed_size = vbz_compress_sized(
+        input_bytes.data(), input_size, compressed_buf.data(), compressed_buf.size(), &options);
+    auto end      = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    if (vbz_is_error(compressed_size))
+    {
+        std::cerr << "Error during compression: " << vbz_error_string(compressed_size) << std::endl;
+        return;
+    }
+
+    compressed_buf.resize(compressed_size);
+
+    std::cout << "Compression time: " << duration << " ms" << std::endl;
+    std::cout << "Original bytes: " << input_size << std::endl;
+    std::cout << "Compressed bytes: " << compressed_size << std::endl;
+    std::cout << "Compression ratio: " << (double(input_size) / compressed_size) << std::endl;
+
+    // Write compressed data to file
+    std::ofstream ofs(output_file, std::ios::binary);
+    if (!ofs.is_open())
+    {
+        std::cerr << "Error: Could not open output file" << std::endl;
+        return;
+    }
+    ofs.write(compressed_buf.data(), compressed_buf.size());
+    ofs.close();
+
+    // Use vbz_decompressed_size to get original size (from compressed data)
+    vbz_size_t decompressed_size
+        = vbz_decompressed_size(compressed_buf.data(), compressed_size, &options);
+
+    if (vbz_is_error(decompressed_size))
+    {
+        std::cerr << "Error getting decompressed size: " << vbz_error_string(decompressed_size)
+                  << std::endl;
+        return;
+    }
+
+    // Allocate buffer for decompressed data
+    std::vector<char> decompressed_bytes(decompressed_size);
+
+    // Decompress using sized API
+    vbz_size_t result_size
+        = vbz_decompress_sized(compressed_buf.data(), compressed_size, decompressed_bytes.data(),
+                               decompressed_bytes.size(), &options);
+
+    if (vbz_is_error(result_size))
+    {
+        std::cerr << "Error during decompression: " << vbz_error_string(result_size) << std::endl;
+        return;
+    }
+
+    if (result_size != decompressed_size)
+    {
+        std::cerr << "Decompressed size mismatch!" << std::endl;
+        return;
+    }
+
+    // 验证数据一致性
+    if (decompressed_bytes.size() != input_bytes.size())
+    {
+        std::cerr << "Error: decompressed size doesn't match original" << std::endl;
+        return;
+    }
+
+    if (std::memcmp(decompressed_bytes.data(), input_bytes.data(), decompressed_size) != 0)
+    {
+        std::cerr << "Error: Decompressed data does not match original" << std::endl;
+        return;
+    }
+
+    std::cout << "Success: Decompressed data matches original" << std::endl;
+    std::cout << "========================================================" << std::endl;
+}
+
 void test_data_compress()
 {
     auto print_vec = [](const std::string& tip, const auto& v) {
@@ -272,13 +394,25 @@ void test_file_data_compress()
     test_file_vbz_compression(input_file, "./reads_reads_30.dat_5.vbz", 5);
     test_file_vbz_compression(input_file, "./reads_reads_30.dat_9.vbz", 9);
 
-    test_file_vbz_compression(input_file, "./reads_reads_30.dat_true.vbz", 1, true);
-    test_file_vbz_compression(input_file, "./reads_reads_30.dat_true.vbz", 1, false);
+    // test_file_vbz_compression(input_file, "./reads_reads_30.dat_true.vbz", 1, true);
+    // test_file_vbz_compression(input_file, "./reads_reads_30.dat_true.vbz", 1, false);
+}
+
+void test_file_data_compress_sized()
+{
+    const std::string input_file = "../../test_data/reads_test_dat/reads_30.dat";
+    test_file_vbz_compression_sized(input_file, "./reads_reads_30.dat_1.vbz", 1);
+    test_file_vbz_compression_sized(input_file, "./reads_reads_30.dat_5.vbz", 5);
+    test_file_vbz_compression_sized(input_file, "./reads_reads_30.dat_9.vbz", 9);
+
+    // test_file_vbz_compression_sized(input_file, "./reads_reads_30.dat_true.vbz", 1, true);
+    // test_file_vbz_compression_sized(input_file, "./reads_reads_30.dat_true.vbz", 1, false);
 }
 
 int main()
 {
-    test_data_compress();
-    // test_file_data_compress();
+    // test_data_compress();
+    test_file_data_compress();
+    test_file_data_compress_sized();
     return 0;
 }
