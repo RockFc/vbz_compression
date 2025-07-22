@@ -53,6 +53,8 @@ if (BUILD_TESTING)
     endif()
 endif()
 
+add_subdirectory(example)
+
 
 # 安装 libvbz.a 到 lib 目录
 install(TARGETS vbz

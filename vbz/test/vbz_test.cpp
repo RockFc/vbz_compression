@@ -346,16 +346,17 @@ SCENARIO("my_flow_test_1", "[myflow1]")
 
 SCENARIO("Compress and decompress int16_t data from binary file", "[myflow2]")
 {
-    using T                          = int16_t;
-    const int zstd_compression_level = 5;
-    // const std::string input_file             = "../../test_data/reads_test_dat/reads_all.dat";
-    // const std::string output_file            = "./reads_all.dat.vbz";
+    using T                                  = int16_t;
+    const int         zstd_compression_level = 5;
+    const std::string input_file             = "/ssdData/reads_test_dat/reads_all.dat";
+    const std::string output_file            = "./reads_all.dat.vbz";
     // const std::string input_file = "../../test_data/reads_test_dat/reads_10.dat";
     // const std::string output_file = "./reads_10.dat.vbz";
     // const std::string input_file = "../../test_data/reads_test_dat/reads_20.dat";
     // const std::string output_file = "./reads_20.dat.vbz";
-    const std::string input_file  = "../../test_data/reads_test_dat/reads_30.dat";
-    const std::string output_file = "./reads_30.dat.vbz";
+    // const std::string input_file  = "../../test_data/reads_test_dat/reads_30.dat";
+    // const std::string output_file = "./reads_30.dat.vbz";
+
     std::cout << "Input file: " << input_file << std::endl;
     std::cout << "Compression level: " << zstd_compression_level << std::endl;
     std::cout << "Onput file: " << output_file << std::endl;
